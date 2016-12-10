@@ -1,9 +1,49 @@
+var typescript = require('typescript');
+var rollupTypescript = require('rollup-plugin-typescript');
+
 module.exports = function (grunt) {
+
     require('create-grunt-tasks')(grunt, function (create) {
-        
+
+        create.task('build-chrome')
+
+            .sub('rollup', {
+                options: {
+                    format: 'iife',
+                    useStrict: true,
+                    sourceMap: 'inline',
+                    plugins: function () {
+                        return [
+                            rollupTypescript({
+                                typescript: typescript,
+                                target: 'es5'
+                            })
+                        ];
+                    }
+                },
+                files: {
+                    'build/background.js': 'src/background/background.ts',
+                    'build/inject.js': 'src/client/inject.ts'
+                }
+            })
+
+            .sub('copy', {
+                src: 'src/background/background.html',
+                dest: 'build/background.html'
+            })
+            .sub('copy', {
+                cwd: 'src/',
+                expand: true,
+                src: [
+                    'manifest.json',
+                    'img/*.*'
+                ],
+                dest: 'build/'
+            });
+
         //
         // --- Release task ---
-        
+
         create.task('release')
             .sub('clean', [
                 'build/'
@@ -45,7 +85,7 @@ module.exports = function (grunt) {
 
         //
         // --- Debug tasks ---
-        
+
         create.task('debug')
             .sub('debug-js')
             .sub('debug-css')
@@ -70,9 +110,9 @@ module.exports = function (grunt) {
                     paths: ['src/']
                 }
             });
-            
+
         // ---- Watch ----
-            
+
         create.task('debug-watch')
             .sub('concurrent', {
                 tasks: ['debug-watch-js', 'debug-watch-css', 'debug-watch-other'],
@@ -100,7 +140,7 @@ module.exports = function (grunt) {
                 files: ['src/**/*.less'],
                 tasks: ['debug-css', 'ext-reload']
             });
-            
+
         create.task('debug-watch-other')
             .sub('watch', {
                 files: ['src/**/*.{json,html,png,svg,ttf}'],
@@ -147,7 +187,7 @@ module.exports = function (grunt) {
                     closeServer();
                 });
                 server.listen(8890);
-                
+
                 // Close server if no listeners
                 setTimeout(function () {
                     grunt.log.writeln('Auto-reloader did not connect.');
