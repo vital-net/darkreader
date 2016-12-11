@@ -171,7 +171,9 @@ export function parse(color: string): Rgba {
     var matches: string[];
 
     var rgba: Rgba;
-    if (matches = color.match(regexps.rgb)) {
+    if (color === 'transparent') {
+        rgba = { r: 0, g: 0, b: 0, a: 0 };
+    } else if (matches = color.match(regexps.rgb)) {
         rgba = {
             r: parseInt(matches[1], 10),
             g: parseInt(matches[2], 10),
