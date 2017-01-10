@@ -140,13 +140,7 @@
 
                     // Sepia
                     var rgbaMatrix = [[value], [value], [value], [1]];
-                    var sepia = config.sepia / 100;
-                    var sepiaMatrix = [
-                        [(0.393 + 0.607 * (1 - sepia)), (0.769 - 0.769 * (1 - sepia)), (0.189 - 0.189 * (1 - sepia)), 0],
-                        [(0.349 - 0.349 * (1 - sepia)), (0.686 + 0.314 * (1 - sepia)), (0.168 - 0.168 * (1 - sepia)), 0],
-                        [(0.272 - 0.272 * (1 - sepia)), (0.534 - 0.534 * (1 - sepia)), (0.131 + 0.869 * (1 - sepia)), 0],
-                        [0, 0, 0, 1]
-                    ];
+                    var sepiaMatrix = Matrix.sepia(config.sepia / 100).slice(0, 4).map(m => m.slice(0, 4));
                     var resultMatrix = multiplyMatrices(sepiaMatrix, rgbaMatrix);
                     var r = resultMatrix[0][0], g = resultMatrix[1][0], b = resultMatrix[2][0];
 
@@ -181,43 +175,34 @@
             return '';
         }
 
+        createSvgCode(config: FilterConfig) {
+            var matrix = createFilterMatrix(config);
+            var svg = `
+<svg id="dark-reader-svg" style="display:none;">
+  <filter id="DarkReader_Filter">
+    <feColorMatrix type="matrix"
+      values="${matrix.slice(0, 4).map(m => m.map(m => m.toFixed(3)).join(' ')).join('\n')}" />
+  </filter>
+  <filter id="DarkReader_ContraryFilter">
+    <feColorMatrix type="matrix"
+      values="${Matrix.invertNHue().slice(0, 4).map(m => m.map(m => m.toFixed(3)).join(' ')).join('\n')}" />
+  </filter>
+</svg>`.trim().replace(/\n/gm, '\\n');
+            return svg;
+        }
+
 
         //-----------------
         // CSS Declarations
         //-----------------
 
         protected createLeadingRule(config: FilterConfig): string {
-            var result = 'html {\\n  -webkit-filter: ';
-
-            if (config.mode === FilterMode.dark)
-                result += 'invert(100%) hue-rotate(180deg) ';
-
-            result += config.brightness == 100 ? ''
-                : `brightness(${config.brightness}%) `;
-
-            result += config.contrast == 100 ? ''
-                : `contrast(${config.contrast}%) `;
-
-            result += config.grayscale == 0 ? ''
-                : `grayscale(${config.grayscale}%) `;
-
-            result += config.sepia == 0 ? ''
-                : `sepia(${config.sepia}%) `;
-
-            result += '!important;\\n}';
-
-            return result;
+            return `html {\\n  -webkit-filter: url(#DarkReader_Filter) !important;\\n}`;
         }
 
         // Should be used in 'dark mode' only
         protected createContraryRule(config: FilterConfig, selectorsToFix: string): string {
-            var result = selectorsToFix + ' {\\n  -webkit-filter: ';
-
-            result += 'invert(100%) hue-rotate(180deg) ';
-
-            result += '!important;\\n}';
-
-            return result;
+            return `${selectorsToFix} {\\n  -webkit-filter: url(#DarkReader_ContraryFilter) !important;\\n}`;
         }
 
         // Should be used only if 'usefont' is 'true' or 'stroke' > 0
@@ -257,5 +242,91 @@
             }
         }
         return result;
+    }
+
+    function createFilterMatrix(config: FilterConfig) {
+        var m = Matrix.identity();
+        if (config.mode === FilterMode.dark) {
+            m = multiplyMatrices(m, Matrix.invertNHue());
+        }
+        if (config.brightness !== 100) {
+            m = multiplyMatrices(m, Matrix.brightness(config.brightness / 100));
+        }
+        if (config.contrast !== 100) {
+            m = multiplyMatrices(m, Matrix.contrast(config.contrast / 100));
+        }
+        if (config.grayscale !== 0) {
+            m = multiplyMatrices(m, Matrix.grayscale(config.grayscale / 100));
+        }
+        if (config.sepia !== 0) {
+            m = multiplyMatrices(m, Matrix.sepia(config.sepia / 100));
+        }
+        return m;
+    }
+
+    var Matrix = {
+
+        identity() {
+            return [
+                [1, 0, 0, 0, 0],
+                [0, 1, 0, 0, 0],
+                [0, 0, 1, 0, 0],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
+
+        invertNHue() {
+            return [
+                [0.333, -0.667, -0.667, 0, 1],
+                [-0.667, 0.333, -0.667, 0, 1],
+                [-0.667, -0.667, 0.333, 0, 1],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
+
+        brightness(v) {
+            var s = v;
+            return [
+                [1, 0, 0, 0, s],
+                [0, 1, 0, 0, s],
+                [0, 0, 1, 0, s],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
+
+        contrast(v) {
+            var s = v;
+            var t = 0.5 - s / 2;
+            return [
+                [s, 0, 0, 0, t],
+                [0, s, 0, 0, t],
+                [0, 0, s, 0, t],
+                [0, 0, 0, s, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
+
+        sepia(v) {
+            return [
+                [(0.393 + 0.607 * (1 - v)), (0.769 - 0.769 * (1 - v)), (0.189 - 0.189 * (1 - v)), 0, 0],
+                [(0.349 - 0.349 * (1 - v)), (0.686 + 0.314 * (1 - v)), (0.168 - 0.168 * (1 - v)), 0, 0],
+                [(0.272 - 0.272 * (1 - v)), (0.534 - 0.534 * (1 - v)), (0.131 + 0.869 * (1 - v)), 0, 0],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
+
+        grayscale(v) {
+            return [
+                [(0.2126 + 0.7874 * (1 - v)), (0.7152 - 0.7152 * (1 - v)), (0.0722 - 0.0722 * (1 - v)), 0, 0],
+                [(0.2126 - 0.2126 * (1 - v)), (0.7152 + 0.2848 * (1 - v)), (0.0722 - 0.0722 * (1 - v)), 0, 0],
+                [(0.2126 - 0.2126 * (1 - v)), (0.7152 - 0.7152 * (1 - v)), (0.0722 + 0.9278 * (1 - v)), 0, 0],
+                [0, 0, 0, 1, 0],
+                [0, 0, 0, 0, 1]
+            ];
+        },
     }
 } 

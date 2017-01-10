@@ -277,6 +277,7 @@
 
         protected getCode_addStyle(url?: string) {
             var css = this.generator.createCssCode(this.config, url);
+            var svg = this.generator.createSvgCode(this.config);
             var code = `
 ${DEBUG ? "console.log('Executing DR script (add)...');" : ""}
 //debugger;
@@ -288,27 +289,42 @@ var createDRStyle = function() {
     style.appendChild(document.createTextNode(css));
     return style;
 };
-if (document.head) {
+var createDRFilter = function() {
+    var div = document.createElement('div');
+    div.innerHTML = '${svg}';
+    return div.firstElementChild;
+};
+if (document.head && document.body) {
     var style = createDRStyle();
+    var svg = createDRFilter();
     var prevStyle = document.getElementById('dark-reader-style');
+    var prevSvg = document.getElementById('dark-reader-svg');
     if (!prevStyle) {
         document.head.appendChild(style);
+        document.body.appendChild(svg);
         ${DEBUG ? "console.log('Added DR style.');" : ""}
-    } else if (style.textContent.replace(/^\\s*/gm, '') !== prevStyle.textContent.replace(/^\\s*/gm, '')) {
+    } else if (style.textContent.replace(/^\\s*/gm, '') !== prevStyle.textContent.replace(/^\\s*/gm, '')
+        || svg.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values') !== prevSvg.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values')
+    ) {
         prevStyle.parentElement.removeChild(prevStyle);
+        prevSvg.parentElement.removeChild(prevSvg);
         document.head.appendChild(style);
+        document.body.appendChild(svg);
         ${DEBUG ? "console.log('Updated DR style.');" : ""}
     }
 } else {
     var drObserver = new MutationObserver(function (mutations) {
         for (var i = 0; i < mutations.length; i++) {
-            if (mutations[i].target.nodeName === 'HEAD') {
+            if (mutations[i].target.nodeName === 'BODY') {
                 drObserver.disconnect();
                 document.removeEventListener('readystatechange', onReady);
                 var prevStyle = document.getElementById('dark-reader-style');
+                var prevSvg = document.getElementById('dark-reader-svg');
                 if (!prevStyle) {
                     var style = createDRStyle();
+                    var svg = createDRFilter();
                     document.head.appendChild(style);
+                    document.body.appendChild(svg);
                     ${DEBUG ? "console.log('Added DR style using observer.');" : ""}
                 }
                 break;
@@ -327,9 +343,12 @@ if (document.head) {
             document.documentElement.insertBefore(head, document.documentElement.firstElementChild);
         }
         var prevStyle = document.getElementById('dark-reader-style');
+        var prevSvg = document.getElementById('dark-reader-svg');
         if (!prevStyle) {
             var style = createDRStyle();
+            var svg = createDRFilter();
             document.head.appendChild(style);
+            document.body.appendChild(svg);
             ${DEBUG ? "console.log('Added DR style on document ready.');" : ""}
         }
     };
