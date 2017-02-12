@@ -127,21 +127,10 @@
 
                     //
                     // Interpolate background color (fastest, no script required).
-                    // http://www.w3.org/TR/filter-effects/#brightnessEquivalent
 
-                    // Brightness
-                    var value = config.mode === FilterMode.dark ? 0 : 1;
-                    value = value * (config.brightness) / 100;
-
-                    // Contrast
-                    value = value * (config.contrast) / 100 - (0.5 * config.contrast / 100) + 0.5
-
-                    // Grayscale?
-
-                    // Sepia
-                    var rgbaMatrix = [[value], [value], [value], [1]];
-                    var sepiaMatrix = Matrix.sepia(config.sepia / 100).slice(0, 4).map(m => m.slice(0, 4));
-                    var resultMatrix = multiplyMatrices(sepiaMatrix, rgbaMatrix);
+                    var matrix = createFilterMatrix(config);
+                    var rgbaMatrix = [[1], [1], [1], [1], [1]];
+                    var resultMatrix = multiplyMatrices(matrix, rgbaMatrix);
                     var r = resultMatrix[0][0], g = resultMatrix[1][0], b = resultMatrix[2][0];
 
                     // Result color
@@ -178,7 +167,7 @@
         createSvgCode(config: FilterConfig) {
             var matrix = createFilterMatrix(config);
             var svg = `
-<svg id="dark-reader-svg" style="display:none;">
+<svg>
   <filter id="DarkReader_Filter">
     <feColorMatrix type="matrix"
       values="${matrix.slice(0, 4).map(m => m.map(m => m.toFixed(3)).join(' ')).join('\n')}" />
