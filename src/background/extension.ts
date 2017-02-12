@@ -279,93 +279,139 @@
             var css = this.generator.createCssCode(this.config, url);
             var svg = this.generator.createSvgCode(this.config);
             var code = `
-${DEBUG ? "console.log('Executing DR script (add)...');" : ""}
-//debugger;
-var createDRStyle = function() {
-    var css = '${css}';
-    var style = document.createElement('style');
-    style.setAttribute('id', 'dark-reader-style');
-    style.type = 'text/css';
-    style.appendChild(document.createTextNode(css));
-    return style;
-};
-var createDRFilter = function() {
-    var div = document.createElement('div');
-    div.innerHTML = '${svg}';
-    return div.firstElementChild;
-};
-if (document.head && document.body) {
-    var style = createDRStyle();
-    var svg = createDRFilter();
-    var prevStyle = document.getElementById('dark-reader-style');
-    var prevSvg = document.getElementById('dark-reader-svg');
-    if (!prevStyle) {
-        document.head.appendChild(style);
-        document.body.appendChild(svg);
-        ${DEBUG ? "console.log('Added DR style.');" : ""}
-    } else if (style.textContent.replace(/^\\s*/gm, '') !== prevStyle.textContent.replace(/^\\s*/gm, '')
-        || svg.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values') !== prevSvg.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values')
-    ) {
-        prevStyle.parentElement.removeChild(prevStyle);
-        prevSvg.parentElement.removeChild(prevSvg);
-        document.head.appendChild(style);
-        document.body.appendChild(svg);
-        ${DEBUG ? "console.log('Updated DR style.');" : ""}
-    }
-} else {
-    var drObserver = new MutationObserver(function (mutations) {
-        for (var i = 0; i < mutations.length; i++) {
-            if (mutations[i].target.nodeName === 'BODY') {
-                drObserver.disconnect();
-                document.removeEventListener('readystatechange', onReady);
-                var prevStyle = document.getElementById('dark-reader-style');
-                var prevSvg = document.getElementById('dark-reader-svg');
-                if (!prevStyle) {
-                    var style = createDRStyle();
-                    var svg = createDRFilter();
-                    document.head.appendChild(style);
-                    document.body.appendChild(svg);
-                    ${DEBUG ? "console.log('Added DR style using observer.');" : ""}
+${DEBUG ? `console.log('Executing DR script (add)...');` : ``}
+function createNodeAsSoonAsPossible(
+    selector,
+    creator,
+    changePredicate,
+    targetSelector,
+    targetCreator,
+    targetMutationPredicate
+) {
+    var target = targetSelector();
+    if (target) {
+        var node = creator();
+        var prev = selector();
+        if (!prev) {
+            target.appendChild(node);
+            ${DEBUG ? `console.log('Added DR node.');` : ``}
+        } else if (changePredicate(node, prev)) {
+            prev.parentElement.removeChild(prev);
+            target.appendChild(node);
+            ${DEBUG ? `console.log('Updated DR node.');` : ``}
+        }
+    } else {
+        var observer = new MutationObserver(function (mutations) {
+            for (var i = 0; i < mutations.length; i++) {
+                if (targetMutationPredicate(mutations[i])) {
+                    observer.disconnect();
+                    document.removeEventListener('readystatechange', onReady);
+                    var prev = selector();
+                    if (!prev) {
+                        var node = creator();
+                        var target = targetSelector();
+                        target.appendChild(node);
+                        ${DEBUG ? `console.log('Added DR node using observer.');` : ``}
+                    }
+                    break;
                 }
-                break;
             }
+        });
+        observer.observe(document, { childList: true, subtree: true });
+        var onReady = function() {
+            if (document.readyState !== 'complete') { 
+                return;
+            }
+            observer.disconnect();
+            document.removeEventListener('readystatechange', onReady);
+            var target = targetSelector();
+            if (!target) {
+                target = targetCreator();
+            }
+            var prev = selector();
+            if (!prev) {
+                var node = creator();
+                target.appendChild(style);
+                ${DEBUG ? `console.log('Added DR node on document ready.');` : ``}
+            }
+        };
+        document.addEventListener('readystatechange', onReady);
+        if (document.readyState === 'complete') { 
+            onReady();
         }
-    });
-    drObserver.observe(document, { childList: true, subtree: true });
-    var onReady = function() {
-        if (document.readyState !== 'complete') { 
-            return;
-        }
-        drObserver.disconnect();
-        document.removeEventListener('readystatechange', onReady);
-        if (!document.head) {
-            var head = document.createElement('head');
-            document.documentElement.insertBefore(head, document.documentElement.firstElementChild);
-        }
-        var prevStyle = document.getElementById('dark-reader-style');
-        var prevSvg = document.getElementById('dark-reader-svg');
-        if (!prevStyle) {
-            var style = createDRStyle();
-            var svg = createDRFilter();
-            document.head.appendChild(style);
-            document.body.appendChild(svg);
-            ${DEBUG ? "console.log('Added DR style on document ready.');" : ""}
-        }
-    };
-    document.addEventListener('readystatechange', onReady);
-    if (document.readyState === 'complete') { 
-        onReady();
     }
 }
+
+createNodeAsSoonAsPossible(
+    function () {
+        return document.getElementById('dark-reader-style');
+    },
+    function () {
+        var css = '${css}';
+        var style = document.createElement('style');
+        style.setAttribute('id', 'dark-reader-style');
+        style.type = 'text/css';
+        style.appendChild(document.createTextNode(css));
+        return style;
+    },
+    function (node, prev) {
+        var nodeText = node.textContent.replace(/^\\s*/gm, '');
+        var prevText = prev.textContent.replace(/^\\s*/gm, '');
+        return nodeText !== prevText;
+    },
+    function () {
+        return document.head;
+    },
+    function () {
+        var head = document.createElement('head');
+        document.documentElement.insertBefore(head, document.documentElement.firstElementChild);
+        return head;
+    },
+    function (mutation) {
+        return mutation.target.nodeName === 'HEAD';
+    }
+);
+
+createNodeAsSoonAsPossible(
+    function () {
+        return document.getElementById('dark-reader-svg');
+    },
+    function () {
+        var div = document.createElement('div');
+        div.innerHTML = '${svg}';
+        var svg = div.firstElementChild;
+        svg.id = 'dark-reader-svg';
+        svg.style.display = 'none';
+        return svg;
+    },
+    function (node, prev) {
+        var nodeValues = node.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values');
+        var prevValues = prev.querySelector('#DarkReader_Filter feColorMatrix').getAttribute('values');
+        return nodeValues !== prevValues;
+    },
+    function () {
+        return document.body;
+    },
+    function () {
+        var body = document.createElement('body');
+        document.documentElement.insertBefore(body, document.documentElement.firstElementChild);
+        return body;
+    },
+    function (mutation) {
+        return mutation.target.nodeName === 'BODY';
+    }
+);
 `;
             return code;
         }
 
         protected getCode_removeStyle() {
             var code = `
-${DEBUG ? "console.log('Executing DR script (remove)...');" : ""}
+${DEBUG ? `console.log('Executing DR script (remove)...');` : ``}
 var style = document.getElementById('dark-reader-style');
+var svg = document.getElementById('dark-reader-svg');
 style && style.parentElement.removeChild(style);
+svg && svg.parentElement.removeChild(svg);
 `;
             return code;
         }
