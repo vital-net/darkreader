@@ -82,20 +82,20 @@ function getGradientValue(prop: string, value: string) {
                 .split(/,(?!\s*\d)/g)
                 .map((s) => {
                     s = s.trim();
-                    if (s.indexOf('to ') === 0 || s.indexOf('deg') > 0) {
-                        return s;
-                    }
                     var parts = s.replace(/\,\s+/g, ',').split(/\s+/);
                     var value = parts[0];
+                    try {
+                        var rgba = parse(value);
+                        var hsla = rgbaToHsla(rgba);
 
-                    var rgba = parse(value);
-                    var hsla = rgbaToHsla(rgba);
+                        modifyBackgroundColor(hsla);
 
-                    modifyBackgroundColor(hsla);
+                        parts[0] = hslaToString(hsla);
 
-                    parts[0] = hslaToString(hsla);
-
-                    return parts.join(' ');
+                        return parts.join(' ');
+                    } catch (e) {
+                        return s;
+                    }
                 }).join(', ') + match[3];
         }
     } catch (e) {
