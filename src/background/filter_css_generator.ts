@@ -246,20 +246,20 @@
 
     function createFilterMatrix(config: FilterConfig) {
         var m = Matrix.identity();
-        if (config.mode === FilterMode.dark) {
-            m = multiplyMatrices(m, Matrix.invertNHue());
-        }
-        if (config.brightness !== 100) {
-            m = multiplyMatrices(m, Matrix.brightness(config.brightness / 100));
-        }
-        if (config.contrast !== 100) {
-            m = multiplyMatrices(m, Matrix.contrast(config.contrast / 100));
+        if (config.sepia !== 0) {
+            m = multiplyMatrices(m, Matrix.sepia(config.sepia / 100));
         }
         if (config.grayscale !== 0) {
             m = multiplyMatrices(m, Matrix.grayscale(config.grayscale / 100));
         }
-        if (config.sepia !== 0) {
-            m = multiplyMatrices(m, Matrix.sepia(config.sepia / 100));
+        if (config.contrast !== 100) {
+            m = multiplyMatrices(m, Matrix.contrast(config.contrast / 100));
+        }
+        if (config.brightness !== 100) {
+            m = multiplyMatrices(m, Matrix.brightness(config.brightness / 100));
+        }
+        if (config.mode === FilterMode.dark) {
+            m = multiplyMatrices(m, Matrix.invertNHue());
         }
         return m;
     }
@@ -287,7 +287,7 @@
         },
 
         brightness(v) {
-            var s = v;
+            var s = v - 1;
             return [
                 [1, 0, 0, 0, s],
                 [0, 1, 0, 0, s],
@@ -299,12 +299,12 @@
 
         contrast(v) {
             var s = v;
-            var t = 0.5 - s / 2;
+            var t = (1 - s) / 2;
             return [
                 [s, 0, 0, 0, t],
                 [0, s, 0, 0, t],
                 [0, 0, s, 0, t],
-                [0, 0, 0, s, 0],
+                [0, 0, 0, 1, 0],
                 [0, 0, 0, 0, 1]
             ];
         },
