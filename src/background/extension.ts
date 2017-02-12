@@ -390,15 +390,15 @@ createNodeAsSoonAsPossible(
         return nodeValues !== prevValues;
     },
     function () {
-        return document.body;
+        return document.head;
     },
     function () {
-        var body = document.createElement('body');
-        document.documentElement.insertBefore(body, document.documentElement.firstElementChild);
-        return body;
+        var head = document.createElement('head');
+        document.documentElement.insertBefore(head, document.documentElement.firstElementChild);
+        return head;
     },
     function (mutation) {
-        return mutation.target.nodeName === 'BODY';
+        return mutation.target.nodeName === 'HEAD';
     }
 );
 `;
